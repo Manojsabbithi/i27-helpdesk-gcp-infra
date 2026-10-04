@@ -240,3 +240,32 @@ resource "google_compute_firewall" "devops_internal_ssh" {
 
   description = "Allow SSH between DevOps hosts over private networking."
 }
+# ---------------------------------------------------------
+# Jenkins -> SonarQube over private VPC
+# Used by Jenkins CI for SonarQube analysis
+# ---------------------------------------------------------
+
+resource "google_compute_firewall" "jenkins_to_sonarqube" {
+  project = var.project_id
+
+  name      = "${var.project_name}-${var.environment}-allow-jenkins-to-sonarqube"
+  network   = var.network_name
+  direction = "INGRESS"
+  priority  = 1000
+
+  source_tags = [
+    "jenkins-agent",
+    "jenkins-controller"
+  ]
+
+  target_tags = [
+    "sonarqube"
+  ]
+
+  allow {
+    protocol = "tcp"
+    ports    = ["9000"]
+  }
+
+  description = "Allow Jenkins hosts to access SonarQube over private networking."
+}
