@@ -1,0 +1,120 @@
+---
+- name: Install Java 21, Maven and MySQL client
+  ansible.builtin.apt:
+    name:
+      - openjdk-21-jdk
+      - maven
+      - mysql-client
+    state: present
+    update_cache: true
+
+# ---------------------------------------------------------
+# Docker
+# ---------------------------------------------------------
+
+- name: Create Docker apt keyrings directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Install Docker repository key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+
+- name: Configure Docker repository
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc]
+      https://download.docker.com/linux/ubuntu
+      {{ ansible_facts['distribution_release'] }} stable
+    filename: docker
+    state: present
+
+- name: Install Docker Engine
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+    update_cache: true
+
+- name: Enable and start Docker
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started
+
+# ---------------------------------------------------------
+# Jenkins build user
+# ---------------------------------------------------------
+
+- name: Create Jenkins agent user
+  ansible.builtin.user:
+    name: jenkins
+    shell: /bin/bash
+    create_home: true
+    groups:
+      - docker
+    append: true
+    state: present
+
+- name: Add administrator to Docker group
+  ansible.builtin.user:
+    name: "{{ ansible_user }}"
+    groups:
+      - docker
+    append: true
+
+# ---------------------------------------------------------
+# Google Cloud CLI
+# ---------------------------------------------------------
+
+- name: Install Google Cloud repository key
+  ansible.builtin.shell:
+    cmd: >-
+      curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg |
+      gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+    creates: /usr/share/keyrings/cloud.google.gpg
+
+- name: Configure Google Cloud SDK repository
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [signed-by=/usr/share/keyrings/cloud.google.gpg]
+      https://packages.cloud.google.com/apt cloud-sdk main
+    filename: google-cloud-sdk
+    state: present
+
+- name: Install Google Cloud CI/CD tools
+  ansible.builtin.apt:
+    name:
+      - google-cloud-cli
+      - google-cloud-cli-gke-gcloud-auth-plugin
+      - kubectl
+    state: present
+    update_cache: true
+
+# ---------------------------------------------------------
+# Jenkins workspace directories
+# ---------------------------------------------------------
+
+- name: Create Jenkins kubeconfig directory
+  ansible.builtin.file:
+    path: /home/jenkins/.kube
+    state: directory
+    owner: jenkins
+    group: jenkins
+    mode: "0700"
+
+- name: Create Jenkins gcloud config directory
+  ansible.builtin.file:
+    path: /home/jenkins/.config/gcloud
+    state: directory
+    owner: jenkins
+    group: jenkins
+    mode: "0700"

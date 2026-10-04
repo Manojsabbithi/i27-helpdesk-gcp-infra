@@ -1,0 +1,28 @@
+---
+- name: Configure common DevOps packages
+  hosts: devops
+  become: true
+
+  roles:
+    - common
+
+- name: Configure Jenkins Controller
+  hosts: jenkins_controller
+  become: true
+
+  roles:
+    - jenkins_controller
+
+- name: Configure Jenkins Agent
+  hosts: jenkins_agent
+  become: true
+
+  roles:
+    - jenkins_agent
+
+- name: Configure SonarQube
+  hosts: sonarqube_servers
+  become: true
+
+  roles:
+    - sonarqube
