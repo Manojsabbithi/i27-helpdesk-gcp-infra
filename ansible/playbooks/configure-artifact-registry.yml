@@ -1,0 +1,52 @@
+---
+- name: Configure Artifact Registry authentication
+  hosts: jenkins_agent
+  become: true
+
+  vars:
+    artifact_registry_host: asia-south1-docker.pkg.dev
+
+  tasks:
+    - name: Create Jenkins Docker configuration directory
+      ansible.builtin.file:
+        path: /home/jenkins/.docker
+        state: directory
+        owner: jenkins
+        group: jenkins
+        mode: "0700"
+
+    - name: Configure gcloud Docker credential helper
+      ansible.builtin.command:
+        argv:
+          - gcloud
+          - auth
+          - configure-docker
+          - "{{ artifact_registry_host }}"
+          - --quiet
+      become_user: jenkins
+      environment:
+        HOME: /home/jenkins
+      register: docker_auth
+      changed_when: "'Adding credentials' in docker_auth.stderr or 'Adding credentials' in docker_auth.stdout"
+
+    - name: Verify Docker credential helper configuration
+      ansible.builtin.command:
+        cmd: cat /home/jenkins/.docker/config.json
+      register: docker_config
+      changed_when: false
+
+    - name: Display Docker credential helper configuration
+      ansible.builtin.debug:
+        var: docker_config.stdout
+
+    - name: Verify attached GCP identity
+      ansible.builtin.shell: |
+        curl -fsS \
+          -H "Metadata-Flavor: Google" \
+          http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email
+      register: service_account
+      changed_when: false
+
+    - name: Display attached service account
+      ansible.builtin.debug:
+        var: service_account.stdout
