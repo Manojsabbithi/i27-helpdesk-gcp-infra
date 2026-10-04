@@ -1,0 +1,101 @@
+---
+- name: Generate Jenkins Controller agent SSH identity
+  hosts: jenkins_controller
+  become: true
+
+  tasks:
+    - name: Create Jenkins SSH directory
+      ansible.builtin.file:
+        path: /var/lib/jenkins/.ssh
+        state: directory
+        owner: jenkins
+        group: jenkins
+        mode: "0700"
+
+    - name: Generate Jenkins Controller SSH key
+      ansible.builtin.command:
+        argv:
+          - ssh-keygen
+          - -t
+          - ed25519
+          - -N
+          - ""
+          - -C
+          - jenkins-controller-to-agent
+          - -f
+          - /var/lib/jenkins/.ssh/id_ed25519
+        creates: /var/lib/jenkins/.ssh/id_ed25519
+      become_user: jenkins
+
+    - name: Read Jenkins Controller public key
+      ansible.builtin.slurp:
+        src: /var/lib/jenkins/.ssh/id_ed25519.pub
+      register: jenkins_controller_pubkey
+
+
+- name: Authorize Jenkins Controller on Jenkins Agent
+  hosts: jenkins_agent
+  become: true
+
+  tasks:
+    - name: Create Jenkins Agent SSH directory
+      ansible.builtin.file:
+        path: /home/jenkins/.ssh
+        state: directory
+        owner: jenkins
+        group: jenkins
+        mode: "0700"
+
+    - name: Authorize Jenkins Controller key
+      ansible.posix.authorized_key:
+        user: jenkins
+        state: present
+        key: >-
+          {{
+            hostvars[groups['jenkins_controller'][0]]
+            ['jenkins_controller_pubkey']['content']
+            | b64decode
+            | trim
+          }}
+
+
+- name: Validate Jenkins private SSH path
+  hosts: jenkins_controller
+  become: true
+
+  tasks:
+    - name: Read Jenkins Agent SSH host key
+      ansible.builtin.command:
+        argv:
+          - ssh-keyscan
+          - -t
+          - ed25519
+          - "{{ hostvars[groups['jenkins_agent'][0]].private_ip }}"
+      register: jenkins_agent_host_key
+      changed_when: false
+
+    - name: Add Jenkins Agent to Controller known_hosts
+      ansible.builtin.known_hosts:
+        path: /var/lib/jenkins/.ssh/known_hosts
+        name: "{{ hostvars[groups['jenkins_agent'][0]].private_ip }}"
+        key: "{{ jenkins_agent_host_key.stdout }}"
+        state: present
+      become_user: jenkins
+
+    - name: Test Jenkins Controller to Agent SSH
+      ansible.builtin.shell: |
+        ssh \
+          -i /var/lib/jenkins/.ssh/id_ed25519 \
+          -o BatchMode=yes \
+          -o StrictHostKeyChecking=yes \
+          jenkins@{{ hostvars[groups['jenkins_agent'][0]].private_ip }} \
+          'echo HOST=$(hostname); echo USER=$(whoami); java -version 2>&1 | head -1'
+      args:
+        executable: /bin/bash
+      become_user: jenkins
+      register: jenkins_agent_ssh_test
+      changed_when: false
+
+    - name: Display Jenkins Agent SSH validation
+      ansible.builtin.debug:
+        var: jenkins_agent_ssh_test.stdout_lines
