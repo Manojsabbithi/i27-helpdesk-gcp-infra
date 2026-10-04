@@ -1,0 +1,38 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+.terraform.lock.hcl.backup
+
+# Terraform variables containing secrets
+*.auto.tfvars
+*.auto.tfvars.json
+secrets.tfvars
+
+# Ansible
+ansible/inventory/generated.ini
+*.retry
+
+# Credentials / keys
+*.pem
+*.key
+*.json
+credentials*
+service-account*.json
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Temporary
+tmp/
+.temp/
