@@ -23,9 +23,11 @@ pipeline {
 
                     echo
                     echo "===== GCP SERVICE ACCOUNT ====="
+
                     curl -fsS \
                       -H "Metadata-Flavor: Google" \
                       http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email
+
                     echo
                 '''
             }
@@ -41,7 +43,6 @@ pipeline {
 FROM alpine:3.20
 
 RUN adduser -D appuser
-
 USER appuser
 
 CMD ["sh", "-c", "echo Artifact Registry smoke test passed"]
@@ -50,9 +51,6 @@ DOCKERFILE
                     IMAGE_URI="${REGISTRY_HOST}/${PROJECT_ID}/${REPOSITORY}/registry-smoke:build-${BUILD_NUMBER}"
 
                     echo "${IMAGE_URI}" > image-uri.txt
-
-                    echo "Building image:"
-                    echo "${IMAGE_URI}"
 
                     docker build \
                       -t "${IMAGE_URI}" \
@@ -66,9 +64,6 @@ DOCKERFILE
                 sh '''
                     IMAGE_URI="$(cat image-uri.txt)"
 
-                    echo "Pushing:"
-                    echo "${IMAGE_URI}"
-
                     docker push "${IMAGE_URI}"
                 '''
             }
@@ -77,13 +72,22 @@ DOCKERFILE
         stage('Verify Artifact Registry') {
             steps {
                 sh '''
-                    echo "===== ARTIFACT REGISTRY ====="
+                    IMAGE_URI="$(cat image-uri.txt)"
 
-                    gcloud artifacts docker images list \
-                      "${REGISTRY_HOST}/${PROJECT_ID}/${REPOSITORY}" \
-                      --include-tags \
-                      --project="${PROJECT_ID}" \
-                      --format="table(package,tags)"
+                    echo "===== VERIFY REMOTE IMAGE ====="
+                    echo "${IMAGE_URI}"
+
+                    docker image rm "${IMAGE_URI}" || true
+
+                    echo
+                    echo "===== PULL FROM ARTIFACT REGISTRY ====="
+
+                    docker pull "${IMAGE_URI}"
+
+                    echo
+                    echo "===== RUN PULLED IMAGE ====="
+
+                    docker run --rm "${IMAGE_URI}"
                 '''
             }
         }
