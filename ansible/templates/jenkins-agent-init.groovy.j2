@@ -1,0 +1,138 @@
+import jenkins.model.Jenkins
+import hudson.model.Node
+import hudson.slaves.DumbSlave
+import hudson.slaves.RetentionStrategy
+
+import hudson.plugins.sshslaves.SSHLauncher
+import hudson.plugins.sshslaves.verifiers.KnownHostsFileKeyVerificationStrategy
+
+import com.cloudbees.plugins.credentials.CredentialsScope
+import com.cloudbees.plugins.credentials.SystemCredentialsProvider
+import com.cloudbees.plugins.credentials.domains.Domain
+
+import com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey
+
+
+def jenkins = Jenkins.get()
+
+def nodeName      = "i27-helpdesk-agent"
+def nodeLabel     = "i27-helpdesk-agent"
+def agentHost     = "{{ hostvars[groups['jenkins_agent'][0]].private_ip }}"
+def agentUser     = "jenkins"
+def remoteFS      = "/home/jenkins"
+def credentialsId = "i27-helpdesk-agent-ssh"
+
+def privateKeyFile = new File(
+    "/var/lib/jenkins/.ssh/id_ed25519"
+)
+
+if (!privateKeyFile.exists()) {
+    throw new IllegalStateException(
+        "Jenkins Controller SSH private key does not exist."
+    )
+}
+
+def credentialsProvider =
+    SystemCredentialsProvider.getInstance()
+
+def existingCredential =
+    credentialsProvider.getCredentials().find {
+        it.id == credentialsId
+    }
+
+if (existingCredential == null) {
+
+    def sshCredential =
+        new BasicSSHUserPrivateKey(
+            CredentialsScope.SYSTEM,
+            credentialsId,
+            agentUser,
+            new BasicSSHUserPrivateKey.DirectEntryPrivateKeySource(
+                privateKeyFile.text
+            ),
+            null,
+            "SSH credential used by Jenkins to launch i27-helpdesk-agent"
+        )
+
+    credentialsProvider
+        .getStore()
+        .addCredentials(
+            Domain.global(),
+            sshCredential
+        )
+
+    println(
+        "Created Jenkins SSH credential: ${credentialsId}"
+    )
+
+} else {
+
+    println(
+        "Jenkins SSH credential already exists: ${credentialsId}"
+    )
+}
+
+
+def launcher =
+    new SSHLauncher(
+        agentHost,
+        22,
+        credentialsId,
+        "",
+        "",
+        "",
+        "",
+        60,
+        10,
+        15,
+        new KnownHostsFileKeyVerificationStrategy()
+    )
+
+
+def existingNode =
+    jenkins.getNode(nodeName)
+
+if (existingNode == null) {
+
+    def node =
+        new DumbSlave(
+            nodeName,
+            "GCP Jenkins build agent for i27 Helpdesk",
+            remoteFS,
+            "2",
+            Node.Mode.EXCLUSIVE,
+            nodeLabel,
+            launcher,
+            new RetentionStrategy.Always(),
+            []
+        )
+
+    jenkins.addNode(node)
+
+    println(
+        "Created Jenkins node: ${nodeName}"
+    )
+
+} else {
+
+    println(
+        "Jenkins node already exists: ${nodeName}"
+    )
+}
+
+
+/*
+ * Do not execute application builds on the Jenkins Controller.
+ * All actual builds should run on the dedicated agent.
+ */
+jenkins.setNumExecutors(0)
+
+jenkins.save()
+
+println(
+    "Jenkins agent configuration complete."
+)
+
+println(
+    "Agent address: ${agentHost}"
+)
