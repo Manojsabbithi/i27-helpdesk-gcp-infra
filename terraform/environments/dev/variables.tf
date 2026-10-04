@@ -54,3 +54,33 @@ variable "admin_cidr" {
   description = "Administrator public IP in /32 format."
   type        = string
 }
+
+variable "ssh_user" {
+  description = "Linux username used for SSH and Ansible."
+  type        = string
+  default     = "madhukar"
+}
+
+variable "ssh_public_key" {
+  description = "SSH public key installed on DevOps VMs."
+  type        = string
+  sensitive   = true
+}
+
+variable "jenkins_controller_machine_type" {
+  description = "Machine type for Jenkins Controller."
+  type        = string
+  default     = "e2-small"
+}
+
+variable "jenkins_agent_machine_type" {
+  description = "Machine type for Jenkins Agent."
+  type        = string
+  default     = "e2-medium"
+}
+
+variable "sonarqube_machine_type" {
+  description = "Machine type for SonarQube."
+  type        = string
+  default     = "e2-medium"
+}
