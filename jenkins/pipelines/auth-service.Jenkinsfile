@@ -72,7 +72,39 @@ pipeline {
             }
         }
 
-        stage('Docker Build') {
+        stage('SonarQube Analysis') {
+    	    steps {
+                withSonarQubeEnv('i27-sonarqube') {
+                    sh '''
+                	set -e
+
+                        echo "===== SONARQUBE ANALYSIS ====="
+                        echo "Server: ${SONAR_HOST_URL}"
+
+                        echo
+                        echo "===== JACOCO REPORT ====="
+
+                        if [ -f target/site/jacoco/jacoco.xml ]; then
+                            echo "JaCoCo XML report found."
+                            ls -lh target/site/jacoco/jacoco.xml
+                        else
+                           echo "WARNING: JaCoCo XML report not found."
+                        fi
+
+                        echo
+                        echo "===== RUN SONAR SCANNER ====="
+
+                        mvn \
+                   	  -B \
+                   	  -ntp \
+                   	  org.sonarsource.scanner.maven:sonar-maven-plugin:5.8.0.7211:sonar \
+                   	  -Dsonar.projectKey=i27-helpdesk-auth-service \
+                   	  -Dsonar.projectName="i27 Helpdesk Auth Service"
+                      '''
+            	}
+          }
+
+	stage('Docker Build') {
             steps {
                 sh '''
                     echo "Building:"
