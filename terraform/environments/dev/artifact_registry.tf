@@ -17,4 +17,5 @@ module "artifact_registry" {
   ]
 
   jenkins_agent_service_account = module.iam.jenkins_agent_email
+  gke_node_service_account      = module.iam.gke_nodes_email
 }

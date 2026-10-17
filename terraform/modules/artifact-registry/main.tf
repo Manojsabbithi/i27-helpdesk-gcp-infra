@@ -46,3 +46,19 @@ resource "google_artifact_registry_repository_iam_member" "jenkins_writer" {
 
   member = "serviceAccount:${var.jenkins_agent_service_account}"
 }
+
+
+# ---------------------------------------------------------
+# GKE Nodes - pull images
+# ---------------------------------------------------------
+
+resource "google_artifact_registry_repository_iam_member" "gke_reader" {
+  for_each = var.services
+
+  project    = var.project_id
+  location   = var.region
+  repository = google_artifact_registry_repository.services[each.key].name
+
+  role   = "roles/artifactregistry.reader"
+  member = "serviceAccount:${var.gke_node_service_account}"
+}

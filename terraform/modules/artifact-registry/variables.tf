@@ -27,3 +27,9 @@ variable "jenkins_agent_service_account" {
   description = "Jenkins Agent Google service account email."
   type        = string
 }
+
+
+variable "gke_node_service_account" {
+  description = "GKE node Google service account email."
+  type        = string
+}
