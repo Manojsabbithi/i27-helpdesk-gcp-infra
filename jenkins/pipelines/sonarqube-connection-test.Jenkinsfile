@@ -4,62 +4,45 @@ pipeline {
     }
 
     stages {
-
         stage('SonarQube Connection') {
             steps {
                 withSonarQubeEnv('i27-sonarqube') {
                     sh '''
                         set -e
 
-                        echo "===== SONARQUBE SERVER ====="
-                        echo "${SONAR_HOST_URL}"
+                        echo "===== SONARQUBE ====="
+                        echo "Server: ${SONAR_HOST_URL}"
 
-                        echo
-                        echo "===== NETWORK CHECK ====="
                         curl -fsS \
-                          --connect-timeout 5 \
                           "${SONAR_HOST_URL}/api/system/status"
 
                         echo
                         echo
-                        echo "===== TOKEN INJECTION ====="
-
-                        if [ -z "${SONAR_AUTH_TOKEN:-}" ]; then
-                            echo "ERROR: SonarQube token was not injected."
-                            exit 1
-                        fi
-
-                        echo "Token injected: YES"
-
-                        echo
-                        echo "===== TOKEN VALIDATION ====="
+                        echo "===== ADMIN PERMISSION CHECK ====="
 
                         set +x
 
-                        AUTH_RESPONSE="$(
-                          curl -fsS \
+                        HTTP_CODE="$(
+                          curl -sS \
+                            -o /tmp/sonar-admin-check.json \
+                            -w "%{http_code}" \
                             -u "${SONAR_AUTH_TOKEN}:" \
-                            "${SONAR_HOST_URL}/api/authentication/validate"
+                            "${SONAR_HOST_URL}/api/permissions/search_templates?p=1&ps=1"
                         )"
 
                         set -x
 
-                        echo "${AUTH_RESPONSE}"
+                        echo "Admin API HTTP status: ${HTTP_CODE}"
 
-                        echo "${AUTH_RESPONSE}" | grep -q '"valid":true'
+                        if [ "${HTTP_CODE}" = "200" ]; then
+                            echo "SONAR ADMIN TOKEN: YES"
+                        else
+                            echo "SONAR ADMIN TOKEN: NO"
+                            exit 1
+                        fi
                     '''
                 }
             }
-        }
-    }
-
-    post {
-        success {
-            echo 'SonarQube connection test PASSED.'
-        }
-
-        failure {
-            echo 'SonarQube connection test FAILED.'
         }
     }
 }
