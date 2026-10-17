@@ -269,3 +269,32 @@ resource "google_compute_firewall" "jenkins_to_sonarqube" {
 
   description = "Allow Jenkins hosts to access SonarQube over private networking."
 }
+
+# ---------------------------------------------------------
+# SonarQube -> Jenkins Controller webhook
+# Required for Jenkins Quality Gate callback
+# ---------------------------------------------------------
+
+resource "google_compute_firewall" "sonarqube_to_jenkins" {
+  project = var.project_id
+
+  name      = "${var.project_name}-${var.environment}-allow-sonarqube-to-jenkins"
+  network   = var.network_name
+  direction = "INGRESS"
+  priority  = 1000
+
+  source_tags = [
+    "sonarqube"
+  ]
+
+  target_tags = [
+    "jenkins-controller"
+  ]
+
+  allow {
+    protocol = "tcp"
+    ports    = ["8080"]
+  }
+
+  description = "Allow SonarQube webhook callbacks to Jenkins over private networking."
+}
